@@ -1,0 +1,16 @@
+
+menu "Modules"
+
+rsource "Kconfig.defaults"
+
+config AUDIO_SYNC_TIMER_USES_RTC
+    bool
+    default !BT_LL_ACS_NRF53
+    select NRFX_RTC0
+endmenu
+
+module = AUDIO_SYNC_TIMER
+module-str = audio-sync-timer
+source "subsys/logging/Kconfig.template.log_config"
+
+source "Kconfig.zephyr"

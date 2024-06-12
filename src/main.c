@@ -29,6 +29,8 @@
 #include <zephyr/bluetooth/buf.h>
 #include <zephyr/bluetooth/hci_raw.h>
 
+#include "audio_sync_timer.h"
+
 #define LOG_MODULE_NAME hci_uart
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
@@ -356,30 +358,35 @@ SYS_INIT(hci_uart_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEVICE);
 
 #define  HCI_CMD_ISO_TIMESYNC	(0x100)
 
+struct hci_cmd_iso_timestamp_response {
+    struct bt_hci_evt_cc_status cc;
+    uint32_t timestamp;
+} __packed;
+
 #include <zephyr/drivers/bluetooth/hci_driver.h>
 
 uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 {
 	struct net_buf *rsp;
-	struct bt_hci_evt_cc_status *cc;
+    struct hci_cmd_iso_timestamp_response *response;
 
 	LOG_INF("buf %p type %u len %u", buf, bt_buf_get_type(buf), buf->len);
 	LOG_INF("buf[0] = 0x%02x", buf->data[0]);
 
-
-	rsp = bt_hci_cmd_complete_create(BT_OP(BT_OGF_VS, HCI_CMD_ISO_TIMESYNC), sizeof(*cc));
-	cc = net_buf_add(rsp, sizeof(*cc));
-	cc->status = BT_HCI_ERR_SUCCESS;
+	rsp = bt_hci_cmd_complete_create(BT_OP(BT_OGF_VS, HCI_CMD_ISO_TIMESYNC), sizeof(*response));
+	response = net_buf_add(rsp, sizeof(*response));
+	response->cc.status = BT_HCI_ERR_SUCCESS;
+    response->timestamp = audio_sync_timer_capture();
 
 	if (IS_ENABLED(CONFIG_BT_HCI_RAW_H4)) {
 		net_buf_push_u8(rsp, H4_EVT);
 	}
 
-	h4_send( rsp );
+    h4_send( rsp );
 
 //	gpio_pin_configure_dt(&led, (buf->data[0] != 0) ? GPIO_OUTPUT_ACTIVE : GPIO_OUTPUT_INACTIVE);
 
-	return BT_HCI_ERR_SUCCESS;
+	return BT_HCI_ERR_EXT_HANDLED;
 }
 
 int main(void)

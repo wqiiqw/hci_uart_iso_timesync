@@ -1,0 +1,7 @@
+# Audio sync timer
+config NRFX_TIMER1
+	default y
+
+# Audio sync timer
+config NRFX_DPPI
+	default y
