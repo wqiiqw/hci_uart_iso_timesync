@@ -385,7 +385,7 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 int main(void)
 {
 	/* incoming events and data from the controller */
-	K_FIFO_DEFINE(rx_queue);
+	static K_FIFO_DEFINE(rx_queue);
 	int err;
 
 	LOG_DBG("Start");
