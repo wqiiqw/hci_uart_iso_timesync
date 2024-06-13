@@ -19,6 +19,8 @@
 #include <zephyr/device.h>
 #include <zephyr/init.h>
 #include <zephyr/drivers/uart.h>
+#include <zephyr/drivers/bluetooth/hci_driver.h>
+#include <zephyr/drivers/gpio.h>
 
 #include <zephyr/usb/usb_device.h>
 
@@ -258,7 +260,8 @@ static void tx_thread(void *p1, void *p2, void *p3)
 		buf = net_buf_get(&tx_queue, K_FOREVER);
 		/* Pass buffer to the stack */
 		err = bt_send(buf);
-		if (err) {
+		if ((err!=BT_HCI_ERR_SUCCESS) &&
+			(err!=BT_HCI_ERR_EXT_HANDLED)) {
 			LOG_ERR("Unable to send (err %d)", err);
 			net_buf_unref(buf);
 		}
@@ -356,14 +359,20 @@ static int hci_uart_init(void)
 
 SYS_INIT(hci_uart_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEVICE);
 
+#define TIMESYNC_GPIO  DT_NODELABEL(timesync)
+
+#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
+static const struct gpio_dt_spec timesync_pin = GPIO_DT_SPEC_GET(TIMESYNC_GPIO, gpios);
+#else
+#error "No timesync gpio available!"
+#endif
+
 #define  HCI_CMD_ISO_TIMESYNC	(0x100)
 
 struct hci_cmd_iso_timestamp_response {
     struct bt_hci_evt_cc_status cc;
     uint32_t timestamp;
 } __packed;
-
-#include <zephyr/drivers/bluetooth/hci_driver.h>
 
 uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 {
@@ -384,7 +393,9 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 
     h4_send( rsp );
 
-//	gpio_pin_configure_dt(&led, (buf->data[0] != 0) ? GPIO_OUTPUT_ACTIVE : GPIO_OUTPUT_INACTIVE);
+#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
+	gpio_pin_toggle_dt( &timesync_pin );
+#endif
 
 	return BT_HCI_ERR_EXT_HANDLED;
 }
@@ -427,12 +438,16 @@ int main(void)
 		}
 	}
 
-	/* Register set_led_state command */
+	/* Register iso_timesync command */
 	static struct bt_hci_raw_cmd_ext cmd_list = {
 	    .op = BT_OP(BT_OGF_VS, HCI_CMD_ISO_TIMESYNC),
 		.min_len = 1,
 		.func = hci_cmd_iso_timesync_cb
 	};
+
+#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
+	gpio_pin_configure_dt(&timesync_pin, GPIO_OUTPUT_INACTIVE);
+#endif
 
 	bt_hci_raw_cmd_ext_register(&cmd_list, 1);
 
@@ -444,7 +459,16 @@ int main(void)
 			NULL, NULL, NULL, K_PRIO_COOP(7), 0, K_NO_WAIT);
 	k_thread_name_set(&tx_thread_data, "HCI uart TX");
 
-	while (1) {
+#if 0
+    while (1) {
+		uint8_t c = 'A';
+		uart_fifo_fill(hci_uart_dev, &c, 1);
+		uart_irq_tx_enable(hci_uart_dev);
+		k_sleep( K_MSEC(100) );
+	}
+#endif
+
+    while (1) {
 		struct net_buf *buf;
 
 		buf = net_buf_get(&rx_queue, K_FOREVER);

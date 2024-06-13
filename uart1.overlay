@@ -1,4 +1,8 @@
 
+&gpio_fwd {
+    status = "disabled";
+};
+
 &uart1 {
     status = "okay";
     current-speed = <115200>;

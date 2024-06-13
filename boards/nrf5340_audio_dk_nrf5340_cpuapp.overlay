@@ -1,0 +1,10 @@
+/ {
+    host_interface {
+        compatible = "gpio-outputs";
+        status = "okay";
+        timesync: pin_0 {
+		    gpios = <&arduino_header 10 GPIO_ACTIVE_HIGH>;
+            label = "Controller to host timesync pin";
+        };
+    };
+};
