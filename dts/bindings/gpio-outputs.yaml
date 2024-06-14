@@ -1,0 +1,20 @@
+description: |
+    This is for general gpio support
+
+compatible: "gpio-outputs"
+
+child-binding:
+    description: GPIO output child node
+    properties:
+       gpios:
+          type: phandle-array
+          required: true
+          description: port pin description
+       label:
+          required: false
+          type: string
+          description: |
+            Human readable string describing the pin. It can be used by an
+            application to identify this pin or to retrieve its number/index
+            (i.e. child node number) on the parent device.
+
