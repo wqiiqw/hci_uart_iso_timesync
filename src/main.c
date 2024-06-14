@@ -387,15 +387,15 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 	response->cc.status = BT_HCI_ERR_SUCCESS;
     response->timestamp = audio_sync_timer_capture();
 
+#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
+	gpio_pin_toggle_dt( &timesync_pin );
+#endif
+
 	if (IS_ENABLED(CONFIG_BT_HCI_RAW_H4)) {
 		net_buf_push_u8(rsp, H4_EVT);
 	}
 
     h4_send( rsp );
-
-#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
-	gpio_pin_toggle_dt( &timesync_pin );
-#endif
 
 	return BT_HCI_ERR_EXT_HANDLED;
 }
