@@ -359,6 +359,7 @@ static int hci_uart_init(void)
 
 SYS_INIT(hci_uart_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEVICE);
 
+#ifdef CONFIG_AUDIO_SYNC_TIMER_USES_RTC
 #define TIMESYNC_GPIO  DT_NODELABEL(timesync)
 
 #if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
@@ -367,7 +368,7 @@ static const struct gpio_dt_spec timesync_pin = GPIO_DT_SPEC_GET(TIMESYNC_GPIO, 
 #error "No timesync gpio available!"
 #endif
 
-#define  HCI_CMD_ISO_TIMESYNC	(0x100)
+#define  HCI_CMD_ISO_TIMESYNC	(0x200)
 
 struct hci_cmd_iso_timestamp_response {
     struct bt_hci_evt_cc_status cc;
@@ -399,6 +400,7 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 
 	return BT_HCI_ERR_EXT_HANDLED;
 }
+#endif
 
 int main(void)
 {
@@ -438,6 +440,7 @@ int main(void)
 		}
 	}
 
+#ifdef CONFIG_AUDIO_SYNC_TIMER_USES_RTC
 	/* Register iso_timesync command */
 	static struct bt_hci_raw_cmd_ext cmd_list = {
 	    .op = BT_OP(BT_OGF_VS, HCI_CMD_ISO_TIMESYNC),
@@ -450,6 +453,7 @@ int main(void)
 #endif
 
 	bt_hci_raw_cmd_ext_register(&cmd_list, 1);
+#endif
 
 	/* Spawn the TX thread and start feeding commands and data to the
 	 * controller

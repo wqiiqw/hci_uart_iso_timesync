@@ -5,8 +5,10 @@ rsource "Kconfig.defaults"
 
 config AUDIO_SYNC_TIMER_USES_RTC
     bool
-    default !BT_LL_ACS_NRF53
+    default !BT_LL_ACS_NRF53 && SOC_SERIES_NRF53X
     select NRFX_RTC0
+    select NRFX_DPPI
+    select NRFX_TIMER1
 endmenu
 
 module = AUDIO_SYNC_TIMER
