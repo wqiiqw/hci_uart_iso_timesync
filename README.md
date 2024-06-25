@@ -17,3 +17,11 @@ west build -b nrf5340_audio_dk_nrf5340_cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=uart1.
 ```sh
 west build -b nrf5340_audio_dk_nrf5340_cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=uart1.overlay -DOVERLAY_CONFIG=debug.conf
 ```
+# pinout for nrf5340_audio_dk for uart1
+
+| PIN | Arduino |  nrf  |
+|:---:|:-------:|:-----:|
+|  TX |    D0   | P1.09 |
+|  RX |    D1   | P1.08 |
+| RTS |    D7   | P1.11 |
+| CTS |    D8   | P1.10 |
