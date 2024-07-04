@@ -470,6 +470,7 @@ int main(void)
 		uart_irq_tx_enable(hci_uart_dev);
 		k_sleep( K_MSEC(100) );
 	}
+    return 0;
 #endif
 
     while (1) {

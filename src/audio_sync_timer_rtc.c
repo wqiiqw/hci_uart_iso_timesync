@@ -9,7 +9,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/init.h>
 #include <nrfx_dppi.h>
-#include <nrfx_i2s.h>
 #include <nrfx_ipc.h>
 #include <nrfx_rtc.h>
 #include <nrfx_timer.h>

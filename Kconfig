@@ -4,7 +4,7 @@ menu "Modules"
 rsource "Kconfig.defaults"
 
 config AUDIO_SYNC_TIMER_USES_RTC
-    bool
+    bool "Enables syncronization between the APP and NET core running SD"
     default !BT_LL_ACS_NRF53 && SOC_SERIES_NRF53X
     select NRFX_RTC0
     select NRFX_DPPI
