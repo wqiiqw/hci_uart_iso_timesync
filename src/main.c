@@ -398,6 +398,15 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 
     h4_send( rsp );
 
+    // It looks like usually the Controller will free the HCI Comand packet
+   	// As we are handling the HCI Command instead, we also need to free it
+    // Otherwise, the tx queue will overflow
+
+   	// Note: The only example in Zephyr 3.7/NCS 2.7 does not do that either
+   	// zephyr/subsys/usb/device/class/bluetooth.c)
+
+	net_buf_unref(buf);
+
 	return BT_HCI_ERR_EXT_HANDLED;
 }
 #endif
