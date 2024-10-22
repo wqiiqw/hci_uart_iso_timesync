@@ -260,9 +260,10 @@ static void tx_thread(void *p1, void *p2, void *p3)
 		buf = net_buf_get(&tx_queue, K_FOREVER);
 		/* Pass buffer to the stack */
 		err = bt_send(buf);
-		if ((err!=BT_HCI_ERR_SUCCESS) &&
-			(err!=BT_HCI_ERR_EXT_HANDLED)) {
-			LOG_ERR("Unable to send (err %d)", err);
+		if (err!=BT_HCI_ERR_SUCCESS) {
+			if (err!=BT_HCI_ERR_EXT_HANDLED) {
+			    LOG_ERR("Unable to send (err %d)", err);
+            }
 			net_buf_unref(buf);
 		}
 
@@ -397,15 +398,6 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 	}
 
     h4_send( rsp );
-
-    // It looks like usually the Controller will free the HCI Comand packet
-   	// As we are handling the HCI Command instead, we also need to free it
-    // Otherwise, the tx queue will overflow
-
-   	// Note: The only example in Zephyr 3.7/NCS 2.7 does not do that either
-   	// zephyr/subsys/usb/device/class/bluetooth.c)
-
-	net_buf_unref(buf);
 
 	return BT_HCI_ERR_EXT_HANDLED;
 }
