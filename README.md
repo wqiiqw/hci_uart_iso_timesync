@@ -22,6 +22,12 @@ _HCI over UART and timesync not tested._
 
 ## nRF5340 Audio DK
 
+### HCI over USB CDC
+
+```sh
+west build -b nrf5340_audio_dk_nrf5340_cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=usb.overlay -DOVERLAY_CONFIG=overlay-usb.conf
+```
+
 ### HCI over UART 0 connected to Virtual UART in J-Link Probe
 
 ```sh
