@@ -4,3 +4,4 @@
 build
 app.jdebug
 app.jdebug.user
+*.jdebug.user
