@@ -193,7 +193,7 @@ static int audio_sync_timer_init(void)
 		return -ENOMEM;
 	}
 
-	nrf_rtc_subscribe_set(audio_sync_lf_timer_instance.p_reg, NRF_RTC_TASK_START,
+	nrf_rtc_subscribe_set(audio_sync_lf_timer_instance.p_reg, NRF_RTC_TASK_CLEAR,
 			      dppi_channel_rtc_start);
 	nrf_timer_subscribe_set(audio_sync_hf_timer_instance.p_reg, NRF_TIMER_TASK_START,
 				dppi_channel_rtc_start);
@@ -227,15 +227,9 @@ static int audio_sync_timer_init(void)
 		LOG_ERR("nrfx DPPI channel enable error (timer clear): %d", ret);
 		return -EIO;
 	}
-#if 0
-#define TIME_TO_WAIT_MS UINT32_C(2)
-//    uint32_t desired_ticks = nrfx_timer_ms_to_ticks(&audio_sync_hf_timer_instance, TIME_TO_WAIT_MS);
-    uint32_t desired_ticks = 0;
-    nrfx_timer_compare(&audio_sync_hf_timer_instance, NRF_TIMER_CC_CHANNEL2, desired_ticks, true);
-    IRQ_CONNECT(NRFX_IRQ_NUMBER_GET(NRF_TIMER_INST_GET(AUDIO_SYNC_HF_TIMER_INSTANCE_NUMBER)), IRQ_PRIO_LOWEST,
-            NRFX_TIMER_INST_HANDLER_GET(AUDIO_SYNC_HF_TIMER_INSTANCE_NUMBER), 0, 0);
-    nrfx_timer_enable(&audio_sync_hf_timer_instance);
-#endif
+
+	nrfx_rtc_enable(&audio_sync_lf_timer_instance);
+
     LOG_DBG("Audio sync timer initialized");
 	return 0;
 }
