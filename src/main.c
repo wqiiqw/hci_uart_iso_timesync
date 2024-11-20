@@ -426,6 +426,10 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 }
 #endif
 
+static uint32_t little_endian_read_32(const uint8_t * buffer, int position){
+    return ((uint32_t) buffer[position]) | (((uint32_t)buffer[position+1]) << 8) | (((uint32_t)buffer[position+2]) << 16) | (((uint32_t) buffer[position+3]) << 24);
+}
+
 int main(void)
 {
 	/* incoming events and data from the controller */
@@ -500,7 +504,26 @@ int main(void)
     while (1) {
 		struct net_buf *buf;
 
-		buf = k_fifo_get(&rx_queue, K_FOREVER);
+		buf = net_buf_get(&rx_queue, K_FOREVER);
+
+		// ISO RX Measurement Code
+		const uint8_t * packet = buf->data;
+		if (packet[0] == H4_ISO){
+
+			// Get current time
+			uint32_t timestamp_toggle_us = audio_sync_timer_capture();
+			// Toggle
+#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
+			gpio_pin_toggle_dt( &timesync_pin );
+#endif
+			// get rx timestamp: Packet Type (1) | ISO Header (4) | Timestamp (if TS flag is set) 
+    		uint32_t timestamp_sdu_sync_reference_us = little_endian_read_32(packet, 5);
+			// calculate delta
+    		int32_t delta_us = (int32_t)(timestamp_sdu_sync_reference_us - timestamp_toggle_us);
+			// TODO: send delta as string over UART
+    		LOG_INF("Toggle %8u - SDU Sync Reference %8u -> delta %d", timestamp_toggle_us, timestamp_sdu_sync_reference_us, delta_us);
+		}
+
 		err = h4_send(buf);
 		if (err) {
 			LOG_ERR("Failed to send");
