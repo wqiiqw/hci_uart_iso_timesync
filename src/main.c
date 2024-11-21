@@ -506,30 +506,51 @@ int main(void)
 
 		buf = net_buf_get(&rx_queue, K_FOREVER);
 
+#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
 		// ISO RX Measurement Code
 		const uint8_t * packet = buf->data;
 		if (packet[0] == H4_ISO){
 
-			// Get current time
-			uint32_t timestamp_toggle_us = audio_sync_timer_capture();
+			uint32_t timestamp_toggle_us;
+			
+			// Lock interrups
+			uint32_t key = arch_irq_lock();
+
+			while (1){
+				// Get current time once
+				timestamp_toggle_us = audio_sync_timer_capture();
+
+				// Get current time again
+				uint32_t timestamp_toggle_us_verify = audio_sync_timer_capture();
+
+				// check if time didn't jump 
+				int32_t timestamp_delta = (int32_t) (timestamp_toggle_us_verify - timestamp_toggle_us);
+				if ((timestamp_delta >= 0) && (timestamp_delta < 10)){
+					break;
+				}
+			}
+
 			// Toggle
-#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
 			gpio_pin_toggle_dt( &timesync_pin );
-#endif
+
+			// Unlock interrupts
+			arch_irq_unlock(key);
+
 			// get rx timestamp = sdu sync reference: Packet Type (1) | ISO Header (4) | Timestamp (if TS flag is set) 
     		uint32_t timestamp_sdu_sync_reference_us = little_endian_read_32(packet, 5);
+
 			// calculate time of toggle relative to sdu sync reference (usually negative as the packet is received before it should be played)
     		int32_t delta_us = (int32_t)(timestamp_toggle_us - timestamp_sdu_sync_reference_us);
-    		// convert to string
+
+    		// convert to string and send over UART and RTT
     		char delta_string[10];
     		snprintf(delta_string, sizeof(delta_string), "R%+05d!", delta_us);
-    		// send over UART
 		    for (size_t i = 0; delta_string[i] != '\0'; i++) {
 		        uart_poll_out(gmap_uart_dev, delta_string[i]);
 		    }
-		    // send over RTT
     		LOG_INF("Toggle %8u - SDU Sync Reference %8u -> delta %s", timestamp_toggle_us, timestamp_sdu_sync_reference_us, delta_string);
 		}
+#endif
 
 		err = h4_send(buf);
 		if (err) {
