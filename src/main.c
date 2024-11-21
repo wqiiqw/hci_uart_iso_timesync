@@ -516,12 +516,19 @@ int main(void)
 #if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
 			gpio_pin_toggle_dt( &timesync_pin );
 #endif
-			// get rx timestamp: Packet Type (1) | ISO Header (4) | Timestamp (if TS flag is set) 
+			// get rx timestamp = sdu sync reference: Packet Type (1) | ISO Header (4) | Timestamp (if TS flag is set) 
     		uint32_t timestamp_sdu_sync_reference_us = little_endian_read_32(packet, 5);
-			// calculate delta
-    		int32_t delta_us = (int32_t)(timestamp_sdu_sync_reference_us - timestamp_toggle_us);
-			// TODO: send delta as string over UART
-    		LOG_INF("Toggle %8u - SDU Sync Reference %8u -> delta %d", timestamp_toggle_us, timestamp_sdu_sync_reference_us, delta_us);
+			// calculate time of toggle relative to sdu sync reference (usually negative as the packet is received before it should be played)
+    		int32_t delta_us = (int32_t)(timestamp_toggle_us - timestamp_sdu_sync_reference_us);
+    		// convert to string
+    		char delta_string[10];
+    		snprintf(delta_string, sizeof(delta_string), "R%+05d!", delta_us);
+    		// send over UART
+		    for (size_t i = 0; delta_string[i] != '\0'; i++) {
+		        uart_poll_out(gmap_uart_dev, delta_string[i]);
+		    }
+		    // send over RTT
+    		LOG_INF("Toggle %8u - SDU Sync Reference %8u -> delta %s", timestamp_toggle_us, timestamp_sdu_sync_reference_us, delta_string);
 		}
 
 		err = h4_send(buf);
