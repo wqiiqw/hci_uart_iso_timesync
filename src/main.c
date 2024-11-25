@@ -426,9 +426,47 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 }
 #endif
 
+uint16_t little_endian_read_16(const uint8_t * buffer, int position){
+	return (uint16_t)(((uint16_t) buffer[position]) | (((uint16_t)buffer[position+1]) << 8));
+}
+
 static uint32_t little_endian_read_32(const uint8_t * buffer, int position){
     return ((uint32_t) buffer[position]) | (((uint32_t)buffer[position+1]) << 8) | (((uint32_t)buffer[position+2]) << 16) | (((uint32_t) buffer[position+3]) << 24);
 }
+
+#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
+// make sure there's no IRQ between getting the time and the toggle
+// verify timestamp as it's 100% coorect
+static uint32_t toggle_and_get_time(void) {
+	uint32_t timestamp_toggle_us;
+
+	// Lock interrupts
+	uint32_t key = arch_irq_lock();
+
+	while (1){
+		// Get current time once
+		timestamp_toggle_us = audio_sync_timer_capture();
+
+		// Get current time again
+		uint32_t timestamp_toggle_us_verify = audio_sync_timer_capture();
+
+		// check if time didn't jump
+		int32_t timestamp_delta = (int32_t) (timestamp_toggle_us_verify - timestamp_toggle_us);
+		if ((timestamp_delta >= 0) && (timestamp_delta < 10)){
+			break;
+		}
+	}
+
+	// Toggle
+	gpio_pin_toggle_dt( &timesync_pin );
+
+	// Unlock interrupts
+	arch_irq_unlock(key);
+
+	return timestamp_toggle_us;
+}
+
+#endif
 
 int main(void)
 {
@@ -511,30 +549,7 @@ int main(void)
 		const uint8_t * packet = buf->data;
 		if (packet[0] == H4_ISO){
 
-			uint32_t timestamp_toggle_us;
-			
-			// Lock interrups
-			uint32_t key = arch_irq_lock();
-
-			while (1){
-				// Get current time once
-				timestamp_toggle_us = audio_sync_timer_capture();
-
-				// Get current time again
-				uint32_t timestamp_toggle_us_verify = audio_sync_timer_capture();
-
-				// check if time didn't jump 
-				int32_t timestamp_delta = (int32_t) (timestamp_toggle_us_verify - timestamp_toggle_us);
-				if ((timestamp_delta >= 0) && (timestamp_delta < 10)){
-					break;
-				}
-			}
-
-			// Toggle
-			gpio_pin_toggle_dt( &timesync_pin );
-
-			// Unlock interrupts
-			arch_irq_unlock(key);
+			uint32_t timestamp_toggle_us = toggle_and_get_time();
 
 			// get rx timestamp = sdu sync reference: Packet Type (1) | ISO Header (4) | Timestamp (if TS flag is set) 
     		uint32_t timestamp_sdu_sync_reference_us = little_endian_read_32(packet, 5);
@@ -545,12 +560,45 @@ int main(void)
     		// convert to string and send over UART and RTT
     		char delta_string[15];
 			uint8_t first_payload_byte = packet[13];
-    		snprintf(delta_string, sizeof(delta_string), "R%+05d@%02X!", delta_us,first_payload_byte);
+    		snprintf(delta_string, sizeof(delta_string), "R%+06d@%02X!", delta_us,first_payload_byte);
 		    for (size_t i = 0; delta_string[i] != '\0'; i++) {
 		        uart_poll_out(gmap_uart_dev, delta_string[i]);
 		    }
     		LOG_INF("Toggle %8u - SDU Sync Reference %8u -> delta %s", timestamp_toggle_us, timestamp_sdu_sync_reference_us, delta_string);
 		}
+
+    	if (packet[0] == H4_EVT) {
+    		if (packet[1] == 0x0e) {
+    			uint16_t opcode = little_endian_read_16(packet, 4);
+    			uint16_t hci_opcode_le_read_tx_iso_sync = 0x2061;
+    			if (opcode == hci_opcode_le_read_tx_iso_sync) {
+					const uint8_t * return_params = &packet[6];
+
+    				uint32_t timestamp_toggle_us = toggle_and_get_time();
+
+    				// status: 0
+    				uint16_t handle = little_endian_read_16(return_params, 1);
+    				ARG_UNUSED(handle);
+
+    				// get packet sequence number (assuming counter == packet_sequence_number & 0xff)
+    				uint16_t packet_sequence_number = little_endian_read_16(return_params, 3);
+
+    				// get tx timestamp = sdu sync reference: Packet Type (1) | ISO Header (4) | Timestamp (if TS flag is set)
+    				uint32_t timestamp_tx_us = little_endian_read_32(return_params, 5);
+
+    				// calculate time of toggle relative to sdu sync reference (usually negative as the packet is received before it should be played)
+    				int32_t delta_us = (int32_t)(timestamp_toggle_us - timestamp_tx_us);
+
+    				// convert to string and send over UART and RTT
+    				char delta_string[15];
+    				snprintf(delta_string, sizeof(delta_string), "T%+06d@%02X!", delta_us,packet_sequence_number & 0xff);
+    				for (size_t i = 0; delta_string[i] != '\0'; i++) {
+    					uart_poll_out(gmap_uart_dev, delta_string[i]);
+    				}
+    				LOG_INF("Toggle %8u - TX  %8u - %02Xx-> delta %s", timestamp_toggle_us, timestamp_tx_us, packet_sequence_number, delta_string);
+    			}
+    		}
+     	}
 #endif
 
 		err = h4_send(buf);
