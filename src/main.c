@@ -543,8 +543,9 @@ int main(void)
     		int32_t delta_us = (int32_t)(timestamp_toggle_us - timestamp_sdu_sync_reference_us);
 
     		// convert to string and send over UART and RTT
-    		char delta_string[10];
-    		snprintf(delta_string, sizeof(delta_string), "R%+05d!", delta_us);
+    		char delta_string[15];
+			uint8_t first_payload_byte = packet[13];
+    		snprintf(delta_string, sizeof(delta_string), "R%+05d@%02X!", delta_us,first_payload_byte);
 		    for (size_t i = 0; delta_string[i] != '\0'; i++) {
 		        uart_poll_out(gmap_uart_dev, delta_string[i]);
 		    }
