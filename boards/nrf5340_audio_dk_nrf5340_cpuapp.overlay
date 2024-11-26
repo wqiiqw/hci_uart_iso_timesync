@@ -6,7 +6,11 @@
 		    gpios = <&arduino_header 10 GPIO_ACTIVE_HIGH>;
             label = "Controller to host timesync pin";
         };
-    };
+        alternate_toggle: pin_1 {
+		    gpios = <&arduino_header 11 GPIO_ACTIVE_HIGH>;
+            label = "alternate toggle pin";
+        };
+   };
 };
 
 &uart0 {
