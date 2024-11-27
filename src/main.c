@@ -473,7 +473,7 @@ static uint32_t toggle_and_get_time(void) {
 #endif
 
 
-#define TIME_TO_WAIT_MS 1000
+#define PRESENTATION_TIME_US 10000
 #define SYNC_TOGGLE_TIMER_INSTANCE_NUMBER 2
 static const nrfx_timer_t sync_toggle_timer_instance =
 	NRFX_TIMER_INSTANCE(SYNC_TOGGLE_TIMER_INSTANCE_NUMBER);
@@ -484,35 +484,65 @@ static nrfx_timer_config_t cfg = {.frequency = NRFX_MHZ_TO_HZ(1UL),
 				  .interrupt_priority = NRFX_TIMER_DEFAULT_CONFIG_IRQ_PRIORITY,
 				  .p_context = NULL};
 
+static enum {
+	ALTERNATE_TOGGLE_STATE_IDLE,
+	ALTERNATE_TOGGLE_STATE_W4_SDU_SYNC_REF,
+	ALTERNATE_TOGGLE_STATE_W4_AUDIO_OUT
+} alternate_toggle_state = ALTERNATE_TOGGLE_STATE_IDLE;
+
 static void sync_toggle_timer_isr_handler(nrf_timer_event_t event_type, void *p_context){
 	ARG_UNUSED(p_context);
-	if(event_type == NRF_TIMER_EVENT_COMPARE1)
-	{
-		uint32_t remainder_us = nrf_timer_cc_get(NRF_TIMER2, NRF_TIMER_CC_CHANNEL1);
-		gpio_pin_toggle_dt( &alternate_toggle_pin );
-
-		LOG_INF("HS Timer: %d", remainder_us );
-
-		uint32_t next_timeout_ticks = remainder_us + nrfx_timer_ms_to_ticks(&sync_toggle_timer_instance, TIME_TO_WAIT_MS);
-		nrfx_timer_compare(&sync_toggle_timer_instance, NRF_TIMER_CC_CHANNEL1, next_timeout_ticks, true);
+	if(event_type == NRF_TIMER_EVENT_COMPARE1){
+		uint32_t capture_time_us = nrf_timer_cc_get(NRF_TIMER2, NRF_TIMER_CC_CHANNEL1);
+		switch (alternate_toggle_state) {
+			case ALTERNATE_TOGGLE_STATE_W4_SDU_SYNC_REF:
+				alternate_toggle_state = ALTERNATE_TOGGLE_STATE_W4_AUDIO_OUT;
+				gpio_pin_set_dt(&alternate_toggle_pin, 1);
+				uint32_t audio_out_us = capture_time_us + PRESENTATION_TIME_US;
+				nrfx_timer_compare(&sync_toggle_timer_instance, NRF_TIMER_CC_CHANNEL1, audio_out_us, true);
+				LOG_INF("SDU Sync Ref: %d", capture_time_us);
+				break;
+			case ALTERNATE_TOGGLE_STATE_W4_AUDIO_OUT:
+				alternate_toggle_state = ALTERNATE_TOGGLE_STATE_W4_AUDIO_OUT;
+				gpio_pin_set_dt(&alternate_toggle_pin, 0);
+				LOG_INF("Audio Out: %d", capture_time_us);
+				break;
+			default:
+				__ASSERT(0, "Unknown state");
+				break;
+		}
 	}
+}
+
+static void setup_sdu_sync_to_audio_out_timer(uint32_t delay_us) {
+	nrf_timer_cc_set(NRF_TIMER2, NRF_TIMER_CC_CHANNEL1, 0);
+	nrf_timer_task_trigger(NRF_TIMER2, nrf_timer_capture_task_get(NRF_TIMER_CC_CHANNEL1));
+	uint32_t current_time_us = nrf_timer_cc_get(NRF_TIMER2, NRF_TIMER_CC_CHANNEL1);
+	while (current_time_us == 0) {
+		current_time_us = nrf_timer_cc_get(NRF_TIMER2, NRF_TIMER_CC_CHANNEL1);
+	}
+	uint32_t sdu_sync_ref_us = current_time_us + delay_us;
+	LOG_INF("TOGGLE TIMER now %u, sdu_sync_ref %u", current_time_us, sdu_sync_ref_us);
+	nrfx_timer_compare(&sync_toggle_timer_instance, NRF_TIMER_CC_CHANNEL1, sdu_sync_ref_us, true);
+	alternate_toggle_state = ALTERNATE_TOGGLE_STATE_W4_SDU_SYNC_REF;
 }
 
 int main(void)
 {
-	// timer setup
+	// toggle timer setup
 	nrfx_err_t ret;
 	ret = nrfx_timer_init(&sync_toggle_timer_instance, &cfg, sync_toggle_timer_isr_handler);
 	if (ret - NRFX_ERROR_BASE_NUM) {
 		LOG_ERR("nrfx timer init error: %d", ret);
 		return -ENODEV;
 	}
-	uint32_t desired_ticks = nrfx_timer_ms_to_ticks(&sync_toggle_timer_instance, TIME_TO_WAIT_MS);
-	nrfx_timer_compare(&sync_toggle_timer_instance, NRF_TIMER_CC_CHANNEL1, desired_ticks, true);
 	IRQ_CONNECT(NRFX_IRQ_NUMBER_GET(NRF_TIMER_INST_GET(SYNC_TOGGLE_TIMER_INSTANCE_NUMBER)), IRQ_PRIO_LOWEST,
 			NRFX_TIMER_INST_HANDLER_GET(SYNC_TOGGLE_TIMER_INSTANCE_NUMBER), 0, 0);
 	nrfx_timer_enable(&sync_toggle_timer_instance);
+	alternate_toggle_state = ALTERNATE_TOGGLE_STATE_IDLE;
 
+	// simulate received packet
+	setup_sdu_sync_to_audio_out_timer(100000);
 
 	/* incoming events and data from the controller */
 	static K_FIFO_DEFINE(rx_queue);
