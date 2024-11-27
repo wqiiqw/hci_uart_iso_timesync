@@ -592,6 +592,15 @@ int main(void)
 	gpio_pin_configure_dt(&timesync_pin, GPIO_OUTPUT_INACTIVE);
 #endif
 
+#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
+	gpio_pin_configure_dt(&alternate_toggle_pin, GPIO_OUTPUT_INACTIVE);
+#endif
+
+	// try to toggle pin
+	while (1) {
+		gpio_pin_toggle_dt( &alternate_toggle_pin );
+	}
+
 	bt_hci_raw_cmd_ext_register(&cmd_list, 1);
 #endif
 
