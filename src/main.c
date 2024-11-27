@@ -484,7 +484,7 @@ static nrfx_timer_config_t cfg = {.frequency = NRFX_MHZ_TO_HZ(1UL),
 				  .interrupt_priority = NRFX_TIMER_DEFAULT_CONFIG_IRQ_PRIORITY,
 				  .p_context = NULL};
 
-static enum {
+static volatile enum {
 	ALTERNATE_TOGGLE_STATE_IDLE,
 	ALTERNATE_TOGGLE_STATE_W4_SDU_SYNC_REF,
 	ALTERNATE_TOGGLE_STATE_W4_AUDIO_OUT
@@ -500,12 +500,12 @@ static void sync_toggle_timer_isr_handler(nrf_timer_event_t event_type, void *p_
 				gpio_pin_set_dt(&alternate_toggle_pin, 1);
 				uint32_t audio_out_us = capture_time_us + PRESENTATION_TIME_US;
 				nrfx_timer_compare(&sync_toggle_timer_instance, NRF_TIMER_CC_CHANNEL1, audio_out_us, true);
-				LOG_INF("SDU Sync Ref: %d", capture_time_us);
+				// LOG_INF("SDU Sync Ref: %d", capture_time_us);
 				break;
 			case ALTERNATE_TOGGLE_STATE_W4_AUDIO_OUT:
 				alternate_toggle_state = ALTERNATE_TOGGLE_STATE_IDLE;
 				gpio_pin_set_dt(&alternate_toggle_pin, 0);
-				LOG_INF("Audio Out: %d", capture_time_us);
+				// LOG_INF("Audio Out: %d", capture_time_us);
 				break;
 			default:
 				__ASSERT(0, "Unknown state");
@@ -522,7 +522,7 @@ static void setup_sdu_sync_to_audio_out_timer(uint32_t delay_us) {
 		current_time_us = nrf_timer_cc_get(NRF_TIMER2, NRF_TIMER_CC_CHANNEL1);
 	}
 	uint32_t sdu_sync_ref_us = current_time_us + delay_us;
-	LOG_INF("TOGGLE TIMER now %u, delta %u, sdu_sync_ref %u", current_time_us, delay_us, sdu_sync_ref_us);
+	LOG_INF("TOGGLE TIMER now %u + delta %u => sdu_sync_ref %u", current_time_us, delay_us, sdu_sync_ref_us);
 	nrfx_timer_compare(&sync_toggle_timer_instance, NRF_TIMER_CC_CHANNEL1, sdu_sync_ref_us, true);
 	alternate_toggle_state = ALTERNATE_TOGGLE_STATE_W4_SDU_SYNC_REF;
 }
@@ -629,9 +629,13 @@ int main(void)
 			// get rx timestamp = sdu sync reference: Packet Type (1) | ISO Header (4) | Timestamp (if TS flag is set) 
     		uint32_t timestamp_sdu_sync_reference_us = little_endian_read_32(packet, 5);
 
-			// schedule SDU Sync Ref to Audio Out Toggle
+			// schedule SDU Sync Ref to Audio Out Toggle, if there's enough time
+			int32_t sdu_sync_ref_delta_us = (int32_t)(timestamp_sdu_sync_reference_us - timestamp_toggle_us);
+			// LOG_INF("PULSE: state %x, delta %d", alternate_toggle_state, sdu_sync_ref_delta_us);
 			if (alternate_toggle_state == ALTERNATE_TOGGLE_STATE_IDLE) {
-				int32_t sdu_sync_ref_delta_us = (int32_t)(timestamp_sdu_sync_reference_us - timestamp_toggle_us);
+				if (sdu_sync_ref_delta_us < 3000) {
+					sdu_sync_ref_delta_us = 3000;
+				}
 				setup_sdu_sync_to_audio_out_timer(sdu_sync_ref_delta_us);
 			}
 
@@ -676,7 +680,7 @@ int main(void)
     				for (size_t i = 0; delta_string[i] != '\0'; i++) {
     					uart_poll_out(gmap_uart_dev, delta_string[i]);
     				}
-    				LOG_INF("Toggle %8u - TX  %8u - %02Xx-> delta %s", timestamp_toggle_us, timestamp_tx_us, packet_sequence_number, delta_string);
+    				LOG_INF("Toggle %8u - TX  %8u - %02X-> delta %s", timestamp_toggle_us, timestamp_tx_us, packet_sequence_number, delta_string);
     			}
     		}
      	}
