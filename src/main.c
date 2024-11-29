@@ -484,6 +484,8 @@ int main(void)
 		}
 	}
 
+    gpio_pin_configure_dt(&alternate_toggle_pin, GPIO_OUTPUT_INACTIVE);
+
 #ifdef CONFIG_AUDIO_SYNC_TIMER_USES_RTC
 	/* Register iso_timesync command */
 	static struct bt_hci_raw_cmd_ext cmd_list = {
