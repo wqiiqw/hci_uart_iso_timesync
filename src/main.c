@@ -67,6 +67,20 @@ static K_FIFO_DEFINE(uart_tx_queue);
  */
 #define H4_DISCARD_LEN 33
 
+#ifdef CONFIG_AUDIO_SYNC_TIMER_USES_RTC
+#define TIMESYNC_GPIO  DT_NODELABEL(timesync)
+
+#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
+static const struct gpio_dt_spec timesync_pin = GPIO_DT_SPEC_GET(TIMESYNC_GPIO, gpios);
+#else
+#error "No timesync gpio available!"
+#endif
+
+#define ALTERNATE_TOGGLE_GPIO DT_NODELABEL(alternate_toggle)
+static const struct gpio_dt_spec alternate_toggle_pin = GPIO_DT_SPEC_GET(ALTERNATE_TOGGLE_GPIO, gpios);
+
+#endif
+
 static int h4_read(const struct device *uart, uint8_t *buf, size_t len)
 {
 	int rx = uart_fifo_read(uart, buf, len);
@@ -259,6 +273,15 @@ static void tx_thread(void *p1, void *p2, void *p3)
 
 		/* Wait until a buffer is available */
 		buf = k_fifo_get(&tx_queue, K_FOREVER);
+
+#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
+		// toggle GPIO and send 'B' for each TX packet to be able to capture by Logic Analzyer
+		if (bt_buf_get_type(buf) == BT_BUF_ISO_OUT) {
+			gpio_pin_toggle_dt( &timesync_pin );
+			uart_poll_out(gmap_uart_dev, 'B');
+		}
+#endif
+
 		/* Pass buffer to the stack */
 		err = bt_send(buf);
         if (err!=BT_HCI_ERR_SUCCESS) {
@@ -362,16 +385,6 @@ static int hci_uart_init(void)
 SYS_INIT(hci_uart_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEVICE);
 
 #ifdef CONFIG_AUDIO_SYNC_TIMER_USES_RTC
-#define TIMESYNC_GPIO  DT_NODELABEL(timesync)
-
-#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
-static const struct gpio_dt_spec timesync_pin = GPIO_DT_SPEC_GET(TIMESYNC_GPIO, gpios);
-#else
-#error "No timesync gpio available!"
-#endif
-
-#define ALTERNATE_TOGGLE_GPIO DT_NODELABEL(alternate_toggle)
-static const struct gpio_dt_spec alternate_toggle_pin = GPIO_DT_SPEC_GET(ALTERNATE_TOGGLE_GPIO, gpios);
 
 #define  HCI_CMD_ISO_TIMESYNC	(0x200)
 
@@ -473,7 +486,7 @@ static uint32_t toggle_and_get_time(void) {
 #endif
 
 
-#define PRESENTATION_TIME_US 10000
+#define PRESENTATION_TIME_US 40070
 #define SYNC_TOGGLE_TIMER_INSTANCE_NUMBER 2
 static const nrfx_timer_t sync_toggle_timer_instance =
 	NRFX_TIMER_INSTANCE(SYNC_TOGGLE_TIMER_INSTANCE_NUMBER);
@@ -633,7 +646,7 @@ int main(void)
 			int32_t sdu_sync_ref_delta_us = (int32_t)(timestamp_sdu_sync_reference_us - timestamp_toggle_us);
 			// LOG_INF("PULSE: state %x, delta %d", alternate_toggle_state, sdu_sync_ref_delta_us);
 			if (alternate_toggle_state == ALTERNATE_TOGGLE_STATE_IDLE) {
-				if (sdu_sync_ref_delta_us < 3000) {
+				if ((sdu_sync_ref_delta_us < 3000) || (sdu_sync_ref_delta_us > 50000)) {
 					sdu_sync_ref_delta_us = 3000;
 				}
 				setup_sdu_sync_to_audio_out_timer(sdu_sync_ref_delta_us);
