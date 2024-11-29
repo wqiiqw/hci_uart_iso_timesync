@@ -371,7 +371,11 @@ static const struct gpio_dt_spec timesync_pin = GPIO_DT_SPEC_GET(TIMESYNC_GPIO, 
 #endif
 
 #define ALTERNATE_TOGGLE_GPIO DT_NODELABEL(alternate_toggle)
+#if DT_NODE_HAS_STATUS(ALTERNATE_TOGGLE_GPIO, okay)
 static const struct gpio_dt_spec alternate_toggle_pin = GPIO_DT_SPEC_GET(ALTERNATE_TOGGLE_GPIO, gpios);
+#else
+#warning "No alternate toggle gpio availabe!"
+#endif
 
 #define  HCI_CMD_ISO_TIMESYNC	(0x200)
 
@@ -427,7 +431,10 @@ static void sync_toggle_timer_isr_handler(nrf_timer_event_t event_type, void *p_
         uint32_t remainder_us = nrf_timer_cc_get(NRF_TIMER2,
 						 NRF_TIMER_CC_CHANNEL1);
 
+#if DT_NODE_HAS_STATUS(ALTERNATE_TOGGLE_GPIO, okay)
         gpio_pin_toggle_dt( &alternate_toggle_pin );
+#endif
+
         LOG_INF("%d\n", remainder_us );
         printf("Timer finished. Context passed to the handler: >%s<", p_msg);
     }
@@ -484,7 +491,9 @@ int main(void)
 		}
 	}
 
+#if DT_NODE_HAS_STATUS(ALTERNATE_TOGGLE_GPIO, okay)
     gpio_pin_configure_dt(&alternate_toggle_pin, GPIO_OUTPUT_INACTIVE);
+#endif
 
 #ifdef CONFIG_AUDIO_SYNC_TIMER_USES_RTC
 	/* Register iso_timesync command */
