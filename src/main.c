@@ -637,32 +637,37 @@ int main(void)
 		const uint8_t * packet = buf->data;
 		if (packet[0] == H4_ISO){
 
-			uint32_t timestamp_toggle_us = toggle_and_get_time();
+			// ignore empty ISO packets
+			uint16_t data_total_length = little_endian_read_16(packet, 3);
+			if (data_total_length > 8) {
 
-			// get rx timestamp = sdu sync reference: Packet Type (1) | ISO Header (4) | Timestamp (if TS flag is set) 
-    		uint32_t timestamp_sdu_sync_reference_us = little_endian_read_32(packet, 5);
+				uint32_t timestamp_toggle_us = toggle_and_get_time();
 
-			// schedule SDU Sync Ref to Audio Out Toggle, if there's enough time
-			int32_t sdu_sync_ref_delta_us = (int32_t)(timestamp_sdu_sync_reference_us - timestamp_toggle_us);
-			// LOG_INF("PULSE: state %x, delta %d", alternate_toggle_state, sdu_sync_ref_delta_us);
-			if (alternate_toggle_state == ALTERNATE_TOGGLE_STATE_IDLE) {
-				if ((sdu_sync_ref_delta_us < 3000) || (sdu_sync_ref_delta_us > 50000)) {
-					sdu_sync_ref_delta_us = 3000;
+				// get rx timestamp = sdu sync reference: Packet Type (1) | ISO Header (4) | Timestamp (if TS flag is set)
+				uint32_t timestamp_sdu_sync_reference_us = little_endian_read_32(packet, 5);
+
+				// schedule SDU Sync Ref to Audio Out Toggle, if there's enough time
+				int32_t sdu_sync_ref_delta_us = (int32_t)(timestamp_sdu_sync_reference_us - timestamp_toggle_us);
+				// LOG_INF("PULSE: state %x, delta %d", alternate_toggle_state, sdu_sync_ref_delta_us);
+				if (alternate_toggle_state == ALTERNATE_TOGGLE_STATE_IDLE) {
+					if ((sdu_sync_ref_delta_us < 3000) || (sdu_sync_ref_delta_us > 50000)) {
+						sdu_sync_ref_delta_us = 3000;
+					}
+					setup_sdu_sync_to_audio_out_timer(sdu_sync_ref_delta_us);
 				}
-				setup_sdu_sync_to_audio_out_timer(sdu_sync_ref_delta_us);
+
+				// calculate time of toggle relative to sdu sync reference (usually negative as the packet is received before it should be played)
+				int32_t delta_us = (int32_t)(timestamp_toggle_us - timestamp_sdu_sync_reference_us);
+
+				// convert to string and send over UART and RTT
+				char delta_string[15];
+				uint8_t first_payload_byte = packet[13];
+				snprintf(delta_string, sizeof(delta_string), "R%+06d@%02X!", delta_us,first_payload_byte);
+				for (size_t i = 0; delta_string[i] != '\0'; i++) {
+					uart_poll_out(gmap_uart_dev, delta_string[i]);
+				}
+				LOG_INF("Toggle %8u - SDU Sync Reference %8u -> delta %s", timestamp_toggle_us, timestamp_sdu_sync_reference_us, delta_string);
 			}
-
-			// calculate time of toggle relative to sdu sync reference (usually negative as the packet is received before it should be played)
-    		int32_t delta_us = (int32_t)(timestamp_toggle_us - timestamp_sdu_sync_reference_us);
-
-    		// convert to string and send over UART and RTT
-    		char delta_string[15];
-			uint8_t first_payload_byte = packet[13];
-    		snprintf(delta_string, sizeof(delta_string), "R%+06d@%02X!", delta_us,first_payload_byte);
-		    for (size_t i = 0; delta_string[i] != '\0'; i++) {
-		        uart_poll_out(gmap_uart_dev, delta_string[i]);
-		    }
-    		LOG_INF("Toggle %8u - SDU Sync Reference %8u -> delta %s", timestamp_toggle_us, timestamp_sdu_sync_reference_us, delta_string);
 		}
 
     	if (packet[0] == H4_EVT) {
