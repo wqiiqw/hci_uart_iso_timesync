@@ -15,7 +15,7 @@ It has been tested on the nRF5340 Audio DK, but it should work with any nRF5340 
 ### HCI over USB CDC
 
 ```sh
-west build -b nrf5340dk_nrf5340_cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=usb.overlay -DOVERLAY_CONFIG=overlay-usb.conf
+west build -b nrf5340dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=usb.overlay -DOVERLAY_CONFIG=overlay-usb.conf
 ```
 _HCI over UART and timesync not tested._
 
@@ -25,7 +25,7 @@ _HCI over UART and timesync not tested._
 ### HCI over USB CDC
 
 ```sh
-west build -b nrf5340_audio_dk_nrf5340_cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=usb.overlay -DOVERLAY_CONFIG=overlay-usb.conf
+west build -b nrf5340_audio_dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=usb.overlay -DOVERLAY_CONFIG=overlay-usb.conf
 ```
 
 ### HCI over UART 0 connected to Virtual UART in J-Link Probe
@@ -38,12 +38,12 @@ west build -b nrf5340_audio_dk_nrf5340_cpuapp
 
 Release build:
 ```sh
-west build -b nrf5340_audio_dk_nrf5340_cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=uart1.overlay
+west build -b nrf5340_audio_dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=uart1.overlay
 ```
 
 Debug build:
 ```sh
-west build -b nrf5340_audio_dk_nrf5340_cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=uart1.overlay -DOVERLAY_CONFIG=debug.conf
+west build -b nrf5340_audio_dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=uart1.overlay -DOVERLAY_CONFIG=debug.conf
 ```
 
 To use UART 1 via Arduino headers, the virtual UART of the J-Link probe needs to be disabled, e.g. with the JLink Configuration Tool.
