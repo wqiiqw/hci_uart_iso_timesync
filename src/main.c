@@ -81,6 +81,16 @@ static const struct gpio_dt_spec alternate_toggle_pin = GPIO_DT_SPEC_GET(ALTERNA
 
 #endif
 
+// enable to have alternate toggle indicate time from audio in to sdu sync ref in UGT to UGG direction
+#define PERIPHERAL_TO_CENTRAL_AUDIO_IN_TO_SDU_SYNC_REF
+
+// Presentation time from Audio to SDU Sync Ref (UGT->UGG) resp. SDU Sync Ref to Audio Out (UGG->UGT)
+// HS timer on nRF5340 seems to be off: 60000 ticks = 59372 us
+#define PRESENTATION_TIME_US 60634
+
+static uint32_t last_sdu_sync_ref_us;
+static uint32_t sdu_interval_us;
+
 static int h4_read(const struct device *uart, uint8_t *buf, size_t len)
 {
 	int rx = uart_fifo_read(uart, buf, len);
@@ -452,13 +462,17 @@ static uint32_t little_endian_read_32(const uint8_t * buffer, int position){
 }
 
 #if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
+
 // make sure there's no IRQ between getting the time and the toggle
 // verify timestamp as it's 100% coorect
-static uint32_t toggle_and_get_time(void) {
+#define LOCK_IRQS_FOR_SYNC_TOGGLE
+static uint32_t toggle_and_get_bluetooth_time_us(void) {
 	uint32_t timestamp_toggle_us;
 
+#ifdef LOCK_IRQS_FOR_SYNC_TOGGLE
 	// Lock interrupts
 	uint32_t key = arch_irq_lock();
+#endif
 
 	while (1){
 		// Get current time once
@@ -477,8 +491,10 @@ static uint32_t toggle_and_get_time(void) {
 	// Toggle
 	gpio_pin_toggle_dt( &timesync_pin );
 
+#ifdef LOCK_IRQS_FOR_SYNC_TOGGLE
 	// Unlock interrupts
 	arch_irq_unlock(key);
+#endif
 
 	return timestamp_toggle_us;
 }
@@ -486,10 +502,10 @@ static uint32_t toggle_and_get_time(void) {
 #endif
 
 
-#define PRESENTATION_TIME_US 40070
 #define SYNC_TOGGLE_TIMER_INSTANCE_NUMBER 2
 static const nrfx_timer_t sync_toggle_timer_instance =
 	NRFX_TIMER_INSTANCE(SYNC_TOGGLE_TIMER_INSTANCE_NUMBER);
+
 
 static nrfx_timer_config_t cfg = {.frequency = NRFX_MHZ_TO_HZ(1UL),
 				  .mode = NRF_TIMER_MODE_TIMER,
@@ -499,26 +515,34 @@ static nrfx_timer_config_t cfg = {.frequency = NRFX_MHZ_TO_HZ(1UL),
 
 static volatile enum {
 	ALTERNATE_TOGGLE_STATE_IDLE,
-	ALTERNATE_TOGGLE_STATE_W4_SDU_SYNC_REF,
-	ALTERNATE_TOGGLE_STATE_W4_AUDIO_OUT
+	ALTERNATE_TOGGLE_STATE_W2_RISE,
+	ALTERNATE_TOGGLE_STATE_W2_FALL
 } alternate_toggle_state = ALTERNATE_TOGGLE_STATE_IDLE;
 
-static void sync_toggle_timer_isr_handler(nrf_timer_event_t event_type, void *p_context){
+static volatile uint32_t alternate_toggle_fall_us;
+
+static uint32_t get_local_time_us(void) {
+	nrf_timer_cc_set(NRF_TIMER2, NRF_TIMER_CC_CHANNEL2, 0);
+	nrf_timer_task_trigger(NRF_TIMER2, nrf_timer_capture_task_get(NRF_TIMER_CC_CHANNEL2));
+	uint32_t current_time_us = nrf_timer_cc_get(NRF_TIMER2, NRF_TIMER_CC_CHANNEL2);
+	while (current_time_us == 0) {
+		current_time_us = nrf_timer_cc_get(NRF_TIMER2, NRF_TIMER_CC_CHANNEL2);
+	}
+	return current_time_us;
+}
+
+static void alternate_toggle_timer_isr_handler(nrf_timer_event_t event_type, void *p_context){
 	ARG_UNUSED(p_context);
 	if(event_type == NRF_TIMER_EVENT_COMPARE1){
-		uint32_t capture_time_us = nrf_timer_cc_get(NRF_TIMER2, NRF_TIMER_CC_CHANNEL1);
 		switch (alternate_toggle_state) {
-			case ALTERNATE_TOGGLE_STATE_W4_SDU_SYNC_REF:
-				alternate_toggle_state = ALTERNATE_TOGGLE_STATE_W4_AUDIO_OUT;
+			case ALTERNATE_TOGGLE_STATE_W2_RISE:
+				alternate_toggle_state = ALTERNATE_TOGGLE_STATE_W2_FALL;
 				gpio_pin_set_dt(&alternate_toggle_pin, 1);
-				uint32_t audio_out_us = capture_time_us + PRESENTATION_TIME_US;
-				nrfx_timer_compare(&sync_toggle_timer_instance, NRF_TIMER_CC_CHANNEL1, audio_out_us, true);
-				// LOG_INF("SDU Sync Ref: %d", capture_time_us);
+				nrfx_timer_compare(&sync_toggle_timer_instance, NRF_TIMER_CC_CHANNEL1, alternate_toggle_fall_us, true);
 				break;
-			case ALTERNATE_TOGGLE_STATE_W4_AUDIO_OUT:
+			case ALTERNATE_TOGGLE_STATE_W2_FALL:
 				alternate_toggle_state = ALTERNATE_TOGGLE_STATE_IDLE;
 				gpio_pin_set_dt(&alternate_toggle_pin, 0);
-				// LOG_INF("Audio Out: %d", capture_time_us);
 				break;
 			default:
 				__ASSERT(0, "Unknown state");
@@ -527,24 +551,17 @@ static void sync_toggle_timer_isr_handler(nrf_timer_event_t event_type, void *p_
 	}
 }
 
-static void setup_sdu_sync_to_audio_out_timer(uint32_t delay_us) {
-	nrf_timer_cc_set(NRF_TIMER2, NRF_TIMER_CC_CHANNEL1, 0);
-	nrf_timer_task_trigger(NRF_TIMER2, nrf_timer_capture_task_get(NRF_TIMER_CC_CHANNEL1));
-	uint32_t current_time_us = nrf_timer_cc_get(NRF_TIMER2, NRF_TIMER_CC_CHANNEL1);
-	while (current_time_us == 0) {
-		current_time_us = nrf_timer_cc_get(NRF_TIMER2, NRF_TIMER_CC_CHANNEL1);
-	}
-	uint32_t sdu_sync_ref_us = current_time_us + delay_us;
-	LOG_INF("TOGGLE TIMER now %u + delta %u => sdu_sync_ref %u", current_time_us, delay_us, sdu_sync_ref_us);
-	nrfx_timer_compare(&sync_toggle_timer_instance, NRF_TIMER_CC_CHANNEL1, sdu_sync_ref_us, true);
-	alternate_toggle_state = ALTERNATE_TOGGLE_STATE_W4_SDU_SYNC_REF;
+static void alternate_toggle_setup(uint32_t rise_us, uint32_t fall_us) {
+	alternate_toggle_fall_us = fall_us;
+	alternate_toggle_state = ALTERNATE_TOGGLE_STATE_W2_RISE;
+	nrfx_timer_compare(&sync_toggle_timer_instance, NRF_TIMER_CC_CHANNEL1, rise_us, true);
 }
 
 int main(void)
 {
 	// toggle timer setup
 	nrfx_err_t ret;
-	ret = nrfx_timer_init(&sync_toggle_timer_instance, &cfg, sync_toggle_timer_isr_handler);
+	ret = nrfx_timer_init(&sync_toggle_timer_instance, &cfg, alternate_toggle_timer_isr_handler);
 	if (ret - NRFX_ERROR_BASE_NUM) {
 		LOG_ERR("nrfx timer init error: %d", ret);
 		return -ENODEV;
@@ -617,17 +634,7 @@ int main(void)
 			NULL, NULL, NULL, K_PRIO_COOP(7), 0, K_NO_WAIT);
 	k_thread_name_set(&tx_thread_data, "HCI uart TX");
 
-#if 0
-    while (1) {
-		uint8_t c = 'A';
-		uart_fifo_fill(hci_uart_dev, &c, 1);
-		uart_irq_tx_enable(hci_uart_dev);
-		k_sleep( K_MSEC(100) );
-	}
-    return 0;
-#endif
-
-    while (1) {
+	while (1) {
 		struct net_buf *buf;
 
 		buf = net_buf_get(&rx_queue, K_FOREVER);
@@ -637,36 +644,32 @@ int main(void)
 		const uint8_t * packet = buf->data;
 		if (packet[0] == H4_ISO){
 
+			// TODO: check if packets contains timestamp. all Controller -> Host packets have it so far
+
+			// get rx timestamp = sdu sync reference: Packet Type (1) | ISO Header (4) | Timestamp (if TS flag is set)
+			const uint32_t timestamp_sdu_sync_reference_us = little_endian_read_32(packet, 5);
+
 			// ignore empty ISO packets
-			uint16_t data_total_length = little_endian_read_16(packet, 3);
+			const uint16_t data_total_length = little_endian_read_16(packet, 3);
 			if (data_total_length > 8) {
 
-				uint32_t timestamp_toggle_us = toggle_and_get_time();
+				// get current Bluetooth time + toggle GPIO
+				const uint32_t bluetooth_time_us = toggle_and_get_bluetooth_time_us();
 
-				// get rx timestamp = sdu sync reference: Packet Type (1) | ISO Header (4) | Timestamp (if TS flag is set)
-				uint32_t timestamp_sdu_sync_reference_us = little_endian_read_32(packet, 5);
-
-				// schedule SDU Sync Ref to Audio Out Toggle, if there's enough time
-				int32_t sdu_sync_ref_delta_us = (int32_t)(timestamp_sdu_sync_reference_us - timestamp_toggle_us);
-				// LOG_INF("PULSE: state %x, delta %d", alternate_toggle_state, sdu_sync_ref_delta_us);
-				if (alternate_toggle_state == ALTERNATE_TOGGLE_STATE_IDLE) {
-					if ((sdu_sync_ref_delta_us < 3000) || (sdu_sync_ref_delta_us > 50000)) {
-						sdu_sync_ref_delta_us = 3000;
-					}
-					setup_sdu_sync_to_audio_out_timer(sdu_sync_ref_delta_us);
-				}
-
-				// calculate time of toggle relative to sdu sync reference (usually negative as the packet is received before it should be played)
-				int32_t delta_us = (int32_t)(timestamp_toggle_us - timestamp_sdu_sync_reference_us);
+				// calculate time of toggle relative to sdu sync reference usually
+				// - negative for UGT->UGG and
+				// - positive in UGT->UGG direction)
+				const int32_t delta_us = (int32_t)(bluetooth_time_us - timestamp_sdu_sync_reference_us);
 
 				// convert to string and send over UART and RTT
 				char delta_string[15];
-				uint8_t first_payload_byte = packet[13];
+				const uint8_t first_payload_byte = packet[13];
 				snprintf(delta_string, sizeof(delta_string), "R%+06d@%02X!", delta_us,first_payload_byte);
 				for (size_t i = 0; delta_string[i] != '\0'; i++) {
 					uart_poll_out(gmap_uart_dev, delta_string[i]);
 				}
-				LOG_INF("Toggle %8u - SDU Sync Reference %8u -> delta %s", timestamp_toggle_us, timestamp_sdu_sync_reference_us, delta_string);
+
+				LOG_INF("Toggle %8u - SDU Sync Reference %8u -> delta %s", bluetooth_time_us, timestamp_sdu_sync_reference_us, delta_string);
 			}
 		}
 
@@ -675,22 +678,33 @@ int main(void)
     			uint16_t opcode = little_endian_read_16(packet, 4);
     			uint16_t hci_opcode_le_read_tx_iso_sync = 0x2061;
     			if (opcode == hci_opcode_le_read_tx_iso_sync) {
-					const uint8_t * return_params = &packet[6];
+    				const uint8_t * return_params = &packet[6];
 
-    				uint32_t timestamp_toggle_us = toggle_and_get_time();
+    				// get current Bluetooth time + toggle GPIO
+    				const uint32_t bluetooth_time_us = toggle_and_get_bluetooth_time_us();
+
+    				// get current local time
+    				const uint32_t local_time_us = get_local_time_us();
 
     				// status: 0
     				uint16_t handle = little_endian_read_16(return_params, 1);
     				ARG_UNUSED(handle);
 
     				// get packet sequence number (assuming counter == packet_sequence_number & 0xff)
-    				uint16_t packet_sequence_number = little_endian_read_16(return_params, 3);
+    				const uint16_t packet_sequence_number = little_endian_read_16(return_params, 3);
 
     				// get tx timestamp = sdu sync reference: Packet Type (1) | ISO Header (4) | Timestamp (if TS flag is set)
-    				uint32_t timestamp_tx_us = little_endian_read_32(return_params, 5);
+    				const uint32_t iso_tx_us = little_endian_read_32(return_params, 5);
+
+    				// get SDU interval based on sdu sync ref interval (round to the next 100 us)
+    				if (last_sdu_sync_ref_us > 0) {
+    					const uint32_t sdu_interval_reported_us = iso_tx_us - last_sdu_sync_ref_us;
+    					sdu_interval_us = ((sdu_interval_reported_us + 50) / 100 ) * 100;
+    				}
+    				last_sdu_sync_ref_us = iso_tx_us;
 
     				// calculate time of toggle relative to sdu sync reference (usually negative as the packet is received before it should be played)
-    				int32_t delta_us = (int32_t)(timestamp_toggle_us - timestamp_tx_us);
+    				const int32_t delta_us = (int32_t)(bluetooth_time_us - iso_tx_us);
 
     				// convert to string and send over UART and RTT
     				char delta_string[15];
@@ -698,7 +712,36 @@ int main(void)
     				for (size_t i = 0; delta_string[i] != '\0'; i++) {
     					uart_poll_out(gmap_uart_dev, delta_string[i]);
     				}
-    				LOG_INF("Toggle %8u - TX  %8u - %02X-> delta %s", timestamp_toggle_us, timestamp_tx_us, packet_sequence_number, delta_string);
+    				// LOG_INF("Toggle %8u - TX  %8u - %02X-> delta %s", bluetooth_time_us, iso_tx_us, packet_sequence_number, delta_string);
+
+#ifdef PERIPHERAL_TO_CENTRAL_AUDIO_IN_TO_SDU_SYNC_REF
+    				// schedule Audio In to Sync Ref for Peripheral to Central direction
+    				if (sdu_interval_us > 0) {
+    					if (alternate_toggle_state == ALTERNATE_TOGGLE_STATE_IDLE) {
+
+    						// note: for Peripheral to Central, the SDU Sync Ref matches the ISO TX Timestamp
+
+    						// calculate next audio in time such that:
+    						// - it's in the future
+    						// - audio_in_us + presentatioon time = sdu_sync_ref
+    						uint32_t audio_in_us = iso_tx_us - PRESENTATION_TIME_US;
+    						while (audio_in_us < (bluetooth_time_us + 10000)) {
+    							audio_in_us += sdu_interval_us;
+    						}
+
+    						// convert into local time reference
+    						const uint32_t rise_us = local_time_us + (audio_in_us - bluetooth_time_us);
+    						const uint32_t fall_us = rise_us + PRESENTATION_TIME_US;
+
+    						//	LOG_INF("bt %u, tx %u, audio in %u // sdu %u // now %u, rise %u",
+							//		bluetooth_time_us, iso_tx_us, audio_in_us,
+							//		sdu_interval_us,
+							//		local_time_us, rise_us);
+
+    						alternate_toggle_setup(rise_us, fall_us);
+    					}
+    				}
+#endif
     			}
     		}
      	}
