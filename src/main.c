@@ -676,7 +676,13 @@ int main(void)
     	if (packet[0] == H4_EVT) {
     		if (packet[1] == 0x0e) {
     			uint16_t opcode = little_endian_read_16(packet, 4);
-    			uint16_t hci_opcode_le_read_tx_iso_sync = 0x2061;
+    			const uint16_t hci_opcode_reset = 0x0c03;;
+    			if (opcode == hci_opcode_reset) {
+    				LOG_INF("HCI Reset");
+    				last_sdu_sync_ref_us = 0;
+    				sdu_interval_us = 0;
+    			}
+    			const uint16_t hci_opcode_le_read_tx_iso_sync = 0x2061;
     			if (opcode == hci_opcode_le_read_tx_iso_sync) {
     				const uint8_t * return_params = &packet[6];
 
