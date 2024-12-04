@@ -384,14 +384,37 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 	LOG_INF("buf %p type %u len %u", buf, bt_buf_get_type(buf), buf->len);
 	LOG_INF("buf[0] = 0x%02x", buf->data[0]);
 
-	rsp = bt_hci_cmd_complete_create(BT_OP(BT_OGF_VS, HCI_CMD_ISO_TIMESYNC), sizeof(*response));
-	response = net_buf_add(rsp, sizeof(*response));
-	response->cc.status = BT_HCI_ERR_SUCCESS;
-    response->timestamp = audio_sync_timer_capture();
+	uint32_t timestamp_second_us;
+
+	// Lock interrupts to avoid interrupt between time capture and gpio toggle
+	uint32_t key = arch_irq_lock();
+
+	// Get current time
+	uint32_t timestamp_first_us = audio_sync_timer_capture();
+
+	while (1){
+		// get time again and verify that time didn't jump. Work around:
+		// https://devzone.nordicsemi.com/f/nordic-q-a/116907/bluetooth-netcore-time-capture-not-working-100-for-le-audio
+		timestamp_second_us = audio_sync_timer_capture();
+		int32_t timestamp_delta = (int32_t) (timestamp_second_us - timestamp_first_us);
+		if (timestamp_delta < 10){
+			break;
+		}
+		timestamp_first_us = timestamp_second_us;
+	}
 
 #if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
 	gpio_pin_toggle_dt( &timesync_pin );
 #endif
+
+	// Unlock interrupts
+	arch_irq_unlock(key);
+
+	// emit event
+	rsp = bt_hci_cmd_complete_create(BT_OP(BT_OGF_VS, HCI_CMD_ISO_TIMESYNC), sizeof(*response));
+	response = net_buf_add(rsp, sizeof(*response));
+	response->cc.status = BT_HCI_ERR_SUCCESS;
+	response->timestamp = timestamp_second_us;
 
 	if (IS_ENABLED(CONFIG_BT_HCI_RAW_H4)) {
 		net_buf_push_u8(rsp, H4_EVT);
