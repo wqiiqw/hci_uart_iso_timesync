@@ -37,8 +37,9 @@
 #define LOG_MODULE_NAME hci_uart
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
-static const struct device *const hci_uart_dev =
-	DEVICE_DT_GET(DT_CHOSEN(zephyr_bt_c2h_uart));
+static const struct device *const hci_uart_dev  = DEVICE_DT_GET(DT_CHOSEN(zephyr_bt_c2h_uart));
+static const struct device *const gmap_uart_dev = DEVICE_DT_GET(DT_NODELABEL(uart1));
+
 static K_THREAD_STACK_DEFINE(tx_thread_stack, CONFIG_BT_HCI_TX_STACK_SIZE);
 static struct k_thread tx_thread_data;
 static K_FIFO_DEFINE(tx_queue);
@@ -576,7 +577,12 @@ int main(void)
 	int err;
 
 	LOG_DBG("Start");
-	__ASSERT(hci_uart_dev, "UART device is NULL");
+	__ASSERT(hci_uart_dev, "HCI UART device is NULL");
+
+	if (!device_is_ready(gmap_uart_dev)) {
+		printk("GMAP UART device is not ready\n");
+		return -1;
+	}
 
 	/* Enable the raw interface, this will in turn open the HCI driver */
 	bt_enable_raw(&rx_queue);
