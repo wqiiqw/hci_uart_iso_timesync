@@ -20,7 +20,7 @@ It has been tested on the nRF5340 Audio DK, but it should work with any nRF5340 
 ### HCI over USB CDC
 
 ```sh
-west build -b nrf5340dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=usb.overlay -DOVERLAY_CONFIG=overlay-usb.conf
+west build --pristine -b nrf5340dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=usb.overlay -DOVERLAY_CONFIG=overlay-usb.conf
 ```
 _HCI over UART and timesync not tested._
 
@@ -53,14 +53,22 @@ west build --pristine -b nrf5340_audio_dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_
 
 To use UART 1 via Arduino headers, the virtual UART of the J-Link probe needs to be disabled, e.g. with the JLink Configuration Tool.
 
-### UART 1 + Time Sync Pinout
+### UART 1 Pinout
 
 Signal direction as seen from the nRF5340.
 
-| PIN      | Arduino |  nrf  | Direction |
+| PIN      | Arduino | MCU   | Direction |
 |----------|---------|-------|-----------|
 |  TX      |    D0   | P1.09 |    out    |
 |  RX      |    D1   | P1.08 |    in     |
 | RTS      |    D7   | P1.11 |    out    |
 | CTS      |    D8   | P1.10 |    in     |
-| Timesync |    D10  | P1.01 |    out    |
+
+### Time Sync Pinout
+
+For time sync, Arduino header D10 is used, which uses different MCU pins on the Audio vs. the regular DK.
+
+| Board            | Time sync MCU Pin |
+|------------------|-------------------|
+| nRF5340 Audio DK | P1.01             |
+| nRF5340 DK       | P1.06             |
