@@ -22,7 +22,18 @@ It has been tested on the nRF5340 Audio DK, but it should work with any nRF5340 
 ```sh
 west build --pristine -b nrf5340dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=usb.overlay -DOVERLAY_CONFIG=overlay-usb.conf
 ```
-_HCI over UART and timesync not tested._
+
+### HCI over UART 0 connected to Virtual UART in J-Link Probe
+```sh
+west build --pristine -b nrf5340dk/nrf5340/cpuapp
+```
+
+### HCI over UART 1 connected to Virtual UART in J-Link Probe
+```sh
+west build --pristine -b nrf5340dk/nrf5340/cpuapp
+```
+
+_HCI over UART 1 and timesync not tested._
 
 
 ## nRF5340 Audio DK
