@@ -104,3 +104,36 @@ west build --pristine -b nrf5340_audio_dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_
 To use UART 1 via Arduino headers, the virtual UART of the J-Link probe needs to be disabled, e.g. with the JLink Configuration Tool.
 
 
+## nRF54L15
+
+### HCI over UART 0 connected to second Virtual UART in J-Link Probe
+
+Release build:
+```sh
+west build -d nrf54l15-iso --pristine -b nrf54l15dk/nrf54l15/cpuapp
+```
+Debug build:
+```sh
+west build -d nrf54l15-iso --pristine -b nrf54l15dk/nrf54l15/cpuapp -- -DOVERLAY_CONFIG=debug.conf
+```
+
+### Pinout
+
+Signal direction as seen from the nRF54L15.
+
+| PIN      | MCU   | Direction |
+|----------|-------|-----------|
+|  TX      | P0.00 |    out    |
+|  RX      | P0.01 |    in     |
+| RTS      | P0.02 |    out    |
+| CTS      | P0.03 |    in     |
+| Time Sync| P1.11 |    out    |
+
+
+## Maintainer Notes
+nRF5340 use Controller configuration in `sybuild/ipc_radio/prj.conf`, while other, e.g. nRF54L15, use configuration in `le-audio.conf`. Please update both at the same time. 
+
+We can check the nRF5340 SoC with `if(CONFIG_SOC STREQUAL "nrf5340")` after find_package zephyr.
+
+
+ 
