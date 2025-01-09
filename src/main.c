@@ -360,7 +360,10 @@ static int hci_uart_init(void)
 
 SYS_INIT(hci_uart_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEVICE);
 
-#ifdef CONFIG_AUDIO_SYNC_TIMER_USES_RTC
+#define ENABLE_ISO_TIMESYNC
+
+#ifdef ENABLE_ISO_TIMESYNC
+
 #define TIMESYNC_GPIO  DT_NODELABEL(timesync)
 
 #if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
@@ -464,7 +467,7 @@ int main(void)
 		}
 	}
 
-#ifdef CONFIG_AUDIO_SYNC_TIMER_USES_RTC
+#ifdef ENABLE_ISO_TIMESYNC
 	/* Register iso_timesync command */
 	static struct bt_hci_raw_cmd_ext cmd_list = {
 	    .op = BT_OP(BT_OGF_VS, HCI_CMD_ISO_TIMESYNC),
