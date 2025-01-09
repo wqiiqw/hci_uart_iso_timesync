@@ -31,7 +31,11 @@
 #include <zephyr/bluetooth/buf.h>
 #include <zephyr/bluetooth/hci_raw.h>
 
+// nRF5340 - from ncs/nrf/nrf5340_audio example
 #include "audio_sync_timer.h"
+
+// nRF54L15 - from ncs/nrf/samples/bluetooth/conn_time_sync
+#include "controller_time.h"
 
 #define LOG_MODULE_NAME hci_uart
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
@@ -387,11 +391,12 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 	LOG_INF("buf %p type %u len %u", buf, bt_buf_get_type(buf), buf->len);
 	LOG_INF("buf[0] = 0x%02x", buf->data[0]);
 
-	uint32_t timestamp_second_us;
+	uint32_t timestamp_second_us = 0;
 
 	// Lock interrupts to avoid interrupt between time capture and gpio toggle
 	uint32_t key = arch_irq_lock();
 
+#ifdef CONFIG_SOC_NRF5340_CPUAPP
 	// Get current time
 	uint32_t timestamp_first_us = audio_sync_timer_capture();
 
@@ -405,6 +410,11 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 		}
 		timestamp_first_us = timestamp_second_us;
 	}
+#endif
+
+#ifdef CONFIG_SOC_NRF54L15_CPUAPP
+	timestamp_second_us = (uint32_t) controller_time_us_get();
+#endif
 
 #if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
 	gpio_pin_toggle_dt( &timesync_pin );
