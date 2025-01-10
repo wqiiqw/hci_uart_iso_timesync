@@ -4,6 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/ {
+	host_interface {
+		compatible = "gpio-outputs";
+		status = "okay";
+		timesync: pin_0 {
+			gpios = <&gpio1 01 GPIO_ACTIVE_HIGH>;
+			label = "Controller to host timesync pin";
+		};
+	};
+};
+
  &uart0 {
 	compatible = "nordic,nrf-uarte";
 	current-speed = <1000000>;

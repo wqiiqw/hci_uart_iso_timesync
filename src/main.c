@@ -412,7 +412,7 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 	}
 #endif
 
-#ifdef CONFIG_SOC_NRF54L15_CPUAPP
+#if defined(CONFIG_SOC_NRF54L15_CPUAPP) || defined(CONFIG_SOC_NRF52833)
 	timestamp_second_us = (uint32_t) controller_time_us_get();
 #endif
 

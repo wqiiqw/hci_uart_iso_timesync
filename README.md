@@ -15,6 +15,39 @@ It has been tested on the nRF5340 Audio DK, but it should work with any nRF5340 
 - Response: HCI Command Complete Event with status and 4 bytes timestamp in microseconds
 
 
+
+## nRF58233 Development Kit
+
+The first  Virtual UART (UART1, ...) is Zephyr UART 0
+The second Virtual UART (UART2, ...) is Zephyr UART 1
+
+### Pinout
+
+Signal direction as seen from the nRF52833.
+
+| PIN      | Arduino | MCU   | Direction |
+|----------|---------|-------|-----------|
+|  TX      |    D0   | P0.05 |    out    |
+|  RX      |    D1   | P0.06 |    in     |
+| RTS      |    D7   | P0.07 |    out    |
+| CTS      |    D8   | P0.08 |    in     |
+| Time Sync|    D10  | P1.01 |    out    |
+
+### HCI over UART 0 connected to first Virtual UART in J-Link Probe
+
+Release build:
+```sh
+west build --pristine -b nrf52833dk/nrf52833
+```
+Debug build:
+```sh
+west build --pristine -b nrf52833dk/nrf52833 -- -DOVERLAY_CONFIG=debug.conf
+```
+
+To use UART 0 via Arduino headers, the virtual UART of the J-Link probe needs to be disabled, e.g. with the JLink Configuration Tool.
+
+
+
 ## nRF5340 Development Kit
 
 The first  Virtual UART (UART1, ...) is Zephyr UART 1
@@ -31,8 +64,6 @@ Signal direction as seen from the nRF5340.
 | RTS      |    D7   | P1.11 |    out    |
 | CTS      |    D8   | P1.10 |    in     |
 | Time Sync|    D10  | P1.06 |    out    |
-
-
 
 ### HCI over USB CDC
 
@@ -104,6 +135,7 @@ west build --pristine -b nrf5340_audio_dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_
 To use UART 1 via Arduino headers, the virtual UART of the J-Link probe needs to be disabled, e.g. with the JLink Configuration Tool.
 
 
+
 ## nRF54L15
 
 ### HCI over UART 0 connected to second Virtual UART in J-Link Probe
@@ -133,7 +165,7 @@ Signal direction as seen from the nRF54L15.
 
 
 ## Maintainer Notes
-- nRF5340 use Controller configuration in `sybuild/ipc_radio/prj.conf`, while other, e.g. nRF54L15, use configuration in `prj.conf`. Please update both at the same time. 
+- nRF5340 use Controller configuration in `sybuild/ipc_radio/prj.conf`, while others, e.g. nRF54L15, use configuration from `prj.conf`. Please update both at the same time. 
 - We can detect nRF5340 SoC in CMake with `if(CONFIG_SOC STREQUAL "nrf5340")` after find_package zephyr.
 
  
