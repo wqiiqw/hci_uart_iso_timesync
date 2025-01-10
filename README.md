@@ -117,6 +117,8 @@ Debug build:
 west build -d nrf54l15-iso --pristine -b nrf54l15dk/nrf54l15/cpuapp -- -DOVERLAY_CONFIG=debug.conf
 ```
 
+To use UART 0 via Arduino headers, the virtual UART of the J-Link probe needs to be disabled, e.g. with the JLink Configuration Tool.
+
 ### Pinout
 
 Signal direction as seen from the nRF54L15.
@@ -131,9 +133,7 @@ Signal direction as seen from the nRF54L15.
 
 
 ## Maintainer Notes
-nRF5340 use Controller configuration in `sybuild/ipc_radio/prj.conf`, while other, e.g. nRF54L15, use configuration in `le-audio.conf`. Please update both at the same time. 
-
-We can check the nRF5340 SoC with `if(CONFIG_SOC STREQUAL "nrf5340")` after find_package zephyr.
-
+- nRF5340 use Controller configuration in `sybuild/ipc_radio/prj.conf`, while other, e.g. nRF54L15, use configuration in `prj.conf`. Please update both at the same time. 
+- We can detect nRF5340 SoC in CMake with `if(CONFIG_SOC STREQUAL "nrf5340")` after find_package zephyr.
 
  
