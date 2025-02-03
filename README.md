@@ -138,7 +138,10 @@ To use UART 1 via Arduino headers, the virtual UART of the J-Link probe needs to
 
 ## nRF54L15
 
-### HCI over UART 0 connected to second Virtual UART in J-Link Probe
+### HCI over UART 1 connected to second Virtual UART in J-Link Probe
+
+In Zephyr, the following DTS entry select the UART: `zephyr,bt-c2h-uart = &uart20`.
+(It's not clear, why it's called uart20, but data is routed over UART 1 w.r.t to nRF4L15 Hardware User Guide)
 
 Release build:
 ```sh
@@ -149,19 +152,19 @@ Debug build:
 west build -d nrf54l15-iso --pristine -b nrf54l15dk/nrf54l15/cpuapp -- -DOVERLAY_CONFIG=debug.conf
 ```
 
-To use UART 0 via Arduino headers, the virtual UART of the J-Link probe needs to be disabled, e.g. with the JLink Configuration Tool.
+To use UART 1 via pin headers, the virtual UARTs of the J-Link probe need to be disabled, e.g. with the JLink Configuration Tool.
 
 ### Pinout
 
 Signal direction as seen from the nRF54L15.
 
-| PIN      | MCU   | Direction |
-|----------|-------|-----------|
-|  TX      | P0.00 |    out    |
-|  RX      | P0.01 |    in     |
-| RTS      | P0.02 |    out    |
-| CTS      | P0.03 |    in     |
-| Time Sync| P1.11 |    out    |
+| PIN       | MCU   | Direction |
+|-----------|-------|-----------|
+| TX        | P1.04 |    out    |
+| RX        | P1.05 |    in     |
+| RTS       | P1.06 |    out    |
+| CTS       | P1.07 |    in     |
+| Time Sync | P1.11 |    out    |
 
 
 ## Maintainer Notes
