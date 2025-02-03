@@ -153,6 +153,14 @@ west build -d nrf54l15-iso --pristine -b nrf54l15dk/nrf54l15/cpuapp -- -DOVERLAY
 ```
 
 To use UART 1 via pin headers, the virtual UARTs of the J-Link probe need to be disabled, e.g. with the JLink Configuration Tool.
+As you might want to change the VDDM voltage, see next section, you can also use the Board Configurator GUI to disable VCOM1 and set VDDM.
+
+### nRF54L15 Power Supply
+Warning: On the nRF45L15 DK, the VDDM for the nRF54L15 is set to 1.8V by default!
+
+Options to use it with 3.3V Bluetooth Host:
+- Use the Board Configurator GUI, which is part of nRF Connect for Desktop, to change the VDDM to 3.3V
+- remove the jumper from VDDM Current Measurement connector (P6) and connect 3.3V to VDDM (middle pin).
 
 ### Pinout
 
