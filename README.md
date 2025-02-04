@@ -1,8 +1,10 @@
 # nRF5340 Bluetooth Controller with Support for LE ISO Timesync
 
 This fork of the Zephyr HCI UART example adds a custom HCI Command to allow for timesync between the Bluetooth Host 
-and the Bluetooth Controller. When the HCI LE Read ISO Clock command is received, the Controller toggles a GPIO and 
-returns its current Bluetooth LE ISO Clock in the Command Complete Event.
+and the Bluetooth Controller. When the HCI LE Read ISO Clock command is received, the Controller raise a GPIO for
+a few microseconds and returns its current Bluetooth LE ISO Clock in the Command Complete Event.
+
+We raise the GPIO instead of just toggling as e.g. STM32F4xx only supports timer capture on a specific edge.
 
 It has been tested on the nRF5340 Audio DK, but it should work with any nRF5340 dev kit.
 

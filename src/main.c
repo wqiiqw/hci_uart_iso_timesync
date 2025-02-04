@@ -417,7 +417,8 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 #endif
 
 #if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
-	gpio_pin_toggle_dt( &timesync_pin );
+	// raise
+	gpio_pin_set_dt( &timesync_pin, 1 );
 #endif
 
 	// Unlock interrupts
@@ -434,6 +435,10 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 	}
 
     h4_send( rsp );
+
+#if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)
+	gpio_pin_set_dt( &timesync_pin, 0 );
+#endif
 
 	return BT_HCI_ERR_EXT_HANDLED;
 }
