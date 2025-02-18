@@ -147,11 +147,11 @@ In Zephyr, the following DTS entry select the UART: `zephyr,bt-c2h-uart = &uart2
 
 Release build:
 ```sh
-west build -d nrf54l15-iso --pristine -b nrf54l15dk/nrf54l15/cpuapp
+west build --pristine -b nrf54l15dk/nrf54l15/cpuapp
 ```
 Debug build:
 ```sh
-west build -d nrf54l15-iso --pristine -b nrf54l15dk/nrf54l15/cpuapp -- -DOVERLAY_CONFIG=debug.conf
+west build --pristine -b nrf54l15dk/nrf54l15/cpuapp -- -DOVERLAY_CONFIG=debug.conf
 ```
 
 To use UART 1 via pin headers, the virtual UARTs of the J-Link probe need to be disabled, e.g. with the JLink Configuration Tool.
