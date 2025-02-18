@@ -27,13 +27,13 @@ The second Virtual UART (UART2, ...) is Zephyr UART 1
 
 Signal direction as seen from the nRF52833.
 
-| PIN      | Arduino | MCU   | Direction |
-|----------|---------|-------|-----------|
-|  TX      |    D0   | P0.05 |    out    |
-|  RX      |    D1   | P0.06 |    in     |
-| RTS      |    D7   | P0.07 |    out    |
-| CTS      |    D8   | P0.08 |    in     |
-| Time Sync|    D10  | P1.01 |    out    |
+| PIN      |  MCU   | Direction |
+|----------|--------|-----------|
+|  TX      |  P0.06 |    out    |
+|  RX      |  P0.08 |    in     |
+| RTS      |  P0.05 |    out    |
+| CTS      |  P0.07 |    in     |
+| Time Sync|  P1.01 |    out    |
 
 ### HCI over UART 0 connected to first Virtual UART in J-Link Probe
 
