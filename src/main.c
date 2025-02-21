@@ -396,24 +396,10 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 	// Lock interrupts to avoid interrupt between time capture and gpio toggle
 	uint32_t key = arch_irq_lock();
 
-#ifdef CONFIG_SOC_NRF5340_CPUAPP
-	// Get current time
-	uint32_t timestamp_first_us = audio_sync_timer_capture();
-
-	while (1){
-		// get time again and verify that time didn't jump. Work around:
-		// https://devzone.nordicsemi.com/f/nordic-q-a/116907/bluetooth-netcore-time-capture-not-working-100-for-le-audio
-		timestamp_second_us = audio_sync_timer_capture();
-		int32_t timestamp_delta = (int32_t) (timestamp_second_us - timestamp_first_us);
-		if (timestamp_delta < 10){
-			break;
-		}
-		timestamp_first_us = timestamp_second_us;
-	}
-#endif
-
-#if defined(CONFIG_SOC_NRF54L15_CPUAPP) || defined(CONFIG_SOC_NRF52833)
+#if defined(CONFIG_SOC_NRF54L15_CPUAPP) || defined(CONFIG_SOC_NRF52833) || defined(CONFIG_SOC_NRF5340_CPUAPP)
 	timestamp_second_us = (uint32_t) controller_time_us_get();
+#else
+    #error selected SoC is not supported yet
 #endif
 
 #if DT_NODE_HAS_STATUS(TIMESYNC_GPIO, okay)

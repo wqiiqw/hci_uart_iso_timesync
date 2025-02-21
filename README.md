@@ -9,7 +9,7 @@ We raise the GPIO instead of just toggling as e.g. STM32F4xx only supports timer
 It has been tested on the nRF5340 Audio DK, but it should work with any nRF5340 dev kit.
 
 ## Requirements
-- nRF Connect SDK v2.8 or newer
+- nRF Connect SDK v2.9 or newer
 
 ## HCI LE Read ISO Clock Command
 - OGF: 0x3f, OCF: 0x200
