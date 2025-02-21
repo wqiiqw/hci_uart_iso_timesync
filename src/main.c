@@ -31,9 +31,6 @@
 #include <zephyr/bluetooth/buf.h>
 #include <zephyr/bluetooth/hci_raw.h>
 
-// nRF5340 - from ncs/nrf/nrf5340_audio example
-#include "audio_sync_timer.h"
-
 // nRF54L15 - from ncs/nrf/samples/bluetooth/conn_time_sync
 #include "controller_time.h"
 
