@@ -6,7 +6,7 @@ a few microseconds and returns its current Bluetooth LE ISO Clock in the Command
 
 We raise the GPIO instead of just toggling as e.g. STM32F4xx only supports timer capture on a specific edge.
 
-It has been tested on the nRF5340 Audio DK, but it should work with any nRF5340 dev kit.
+It has been tested on all variants documented below.
 
 ## Requirements
 - nRF Connect SDK v2.9 or newer
@@ -178,7 +178,7 @@ Signal direction as seen from the nRF54L15.
 
 
 ## Maintainer Notes
-- nRF5340 use Controller configuration in `sybuild/ipc_radio/prj.conf`, while others, e.g. nRF54L15, use configuration from `prj.conf`. Please update both at the same time. 
+- nRF5340 use SoftDevice / Controller configuration in `sybuild/ipc_radio/prj.conf`, while all others,  use configuration from `prj.conf`. Please update both at the same time. 
 - We can detect nRF5340 SoC in CMake with `if(CONFIG_SOC STREQUAL "nrf5340")` after find_package zephyr.
 
  
