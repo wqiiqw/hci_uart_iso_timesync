@@ -17,6 +17,14 @@ It has been tested on all variants documented below.
 - Response: HCI Command Complete Event with status and 4 bytes timestamp in microseconds
 
 
+## HCI H4 Baudrate Config
+
+For USB CDC variants, data is sent and received via USB without the data ever beeing sent over a physical UART lines.
+
+For others, especially on nRF54L15 which does not support USB Device role, the UART uses 1 mbps = 1000000 baud, which differs from the quasi standard 115200 of most Bluetooth Controllers.
+
+Please set .baudrate_init = 1000000 in the trasport config struct of btstack/port/posix-h4/main.c
+
 
 ## nRF58233 Development Kit
 
