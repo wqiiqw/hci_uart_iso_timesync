@@ -51,7 +51,7 @@ west build --pristine -b nrf52833dk/nrf52833
 ```
 Debug build:
 ```sh
-west build --pristine -b nrf52833dk/nrf52833 -- -DOVERLAY_CONFIG=debug.conf
+west build --pristine -b nrf52833dk/nrf52833 -- -DEXTRA_CONF_FILE=debug.conf
 ```
 
 To use UART 0 via Arduino headers, the virtual UART of the J-Link probe needs to be disabled, e.g. with the JLink Configuration Tool.
@@ -78,7 +78,7 @@ Signal direction as seen from the nRF5340.
 ### HCI over USB CDC
 
 ```sh
-west build --pristine -b nrf5340dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=usb.overlay -DOVERLAY_CONFIG=overlay-usb.conf
+west build --pristine -b nrf5340dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=usb.overlay -DEXTRA_CONF_FILE=overlay-usb.conf
 ```
 
 
@@ -121,7 +121,7 @@ Signal direction as seen from the nRF5340.
 ### HCI over USB CDC
 
 ```sh
-west build --pristine -b nrf5340_audio_dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=usb.overlay -DOVERLAY_CONFIG=overlay-usb.conf
+west build --pristine -b nrf5340_audio_dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=usb.overlay -DEXTRA_CONF_FILE=overlay-usb.conf
 ```
 
 ### HCI over UART 0 connected to Virtual UART in J-Link Probe
@@ -139,7 +139,7 @@ west build --pristine -b nrf5340_audio_dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_
 
 Debug build:
 ```sh
-west build --pristine -b nrf5340_audio_dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=uart1.overlay -DOVERLAY_CONFIG=debug.conf
+west build --pristine -b nrf5340_audio_dk/nrf5340/cpuapp -- -DEXTRA_DTC_OVERLAY_FILE=uart1.overlay -DEXTRA_CONF_FILE=debug.conf
 ```
 
 To use UART 1 via Arduino headers, the virtual UART of the J-Link probe needs to be disabled, e.g. with the JLink Configuration Tool.
@@ -159,7 +159,7 @@ west build --pristine -b nrf54l15dk/nrf54l15/cpuapp
 ```
 Debug build:
 ```sh
-west build --pristine -b nrf54l15dk/nrf54l15/cpuapp -- -DOVERLAY_CONFIG=debug.conf
+west build --pristine -b nrf54l15dk/nrf54l15/cpuapp -- -DEXTRA_CONF_FILE=debug.conf
 ```
 
 To use UART 1 via pin headers, the virtual UARTs of the J-Link probe need to be disabled, e.g. with the JLink Configuration Tool.
@@ -186,7 +186,7 @@ Signal direction as seen from the nRF54L15.
 
 
 ## Maintainer Notes
-- nRF5340 use SoftDevice / Controller configuration in `sybuild/ipc_radio/prj.conf`, while all others,  use configuration from `prj.conf`. Please update both at the same time. 
+- SoftDevice / Controller configuration for all targets are in `sybuild/ipc_radio.conf`.
 - We can detect nRF5340 SoC in CMake with `if(CONFIG_SOC STREQUAL "nrf5340")` after find_package zephyr.
 
- 
+
