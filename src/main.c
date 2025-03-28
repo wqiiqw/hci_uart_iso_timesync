@@ -361,9 +361,7 @@ static int hci_uart_init(void)
 
 SYS_INIT(hci_uart_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEVICE);
 
-#define ENABLE_ISO_TIMESYNC
-
-#ifdef ENABLE_ISO_TIMESYNC
+#if defined(CONFIG_ENABLE_AUDIO_TIMESYNC)
 
 #define TIMESYNC_GPIO  DT_NODELABEL(timesync)
 
@@ -393,7 +391,7 @@ uint8_t hci_cmd_iso_timesync_cb(struct net_buf *buf)
 	// Lock interrupts to avoid interrupt between time capture and gpio toggle
 	uint32_t key = arch_irq_lock();
 
-#if defined(CONFIG_SOC_NRF54L15_CPUAPP) || defined(CONFIG_SOC_NRF52833) || defined(CONFIG_SOC_NRF5340_CPUAPP)
+#if defined(CONFIG_SOC_SERIES_NRF54LX) || defined(CONFIG_SOC_SERIES_NRF52X) || defined(CONFIG_SOC_SERIES_NRF53X)
 	timestamp_second_us = (uint32_t) controller_time_us_get();
 #else
     #error selected SoC is not supported yet
@@ -465,7 +463,7 @@ int main(void)
 		}
 	}
 
-#ifdef ENABLE_ISO_TIMESYNC
+#if defined(CONFIG_ENABLE_AUDIO_TIMESYNC)
 	/* Register iso_timesync command */
 	static struct bt_hci_raw_cmd_ext cmd_list = {
 	    .op = BT_OP(BT_OGF_VS, HCI_CMD_ISO_TIMESYNC),

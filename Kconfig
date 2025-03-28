@@ -1,18 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
 
 menu "Modules"
 
-rsource "Kconfig.defaults"
-
-config AUDIO_SYNC_TIMER_USES_RTC
+config ENABLE_AUDIO_TIMESYNC
     bool "Enables synchronization between the APP and NET core running SD"
-    default !BT_LL_ACS_NRF53 && SOC_SERIES_NRF53X
-    select NRFX_RTC0
-    select NRFX_DPPI
-    select NRFX_TIMER1
+    default SOC_SERIES_NRF53X || SOC_NRF52833 || SOC_SERIES_NRF54LX
+    select NRFX_RTC0 if SOC_SERIES_NRF53X
+    select NRFX_DPPI if SOC_SERIES_NRF53X
+    select NRFX_TIMER0 if SOC_SERIES_NRF53X
+    select NRFX_RTC2 if SOC_SERIES_NRF52X
+    select NRFX_PPI if SOC_SERIES_NRF52X
+    select NRFX_TIMER1 if SOC_SERIES_NRF52X
 endmenu
 
 module = AUDIO_SYNC_TIMER
 module-str = audio-sync-timer
-source "subsys/logging/Kconfig.template.log_config"
 
+source "subsys/logging/Kconfig.template.log_config"
 source "Kconfig.zephyr"
+
