@@ -19,7 +19,7 @@
 #include <zephyr/device.h>
 #include <zephyr/init.h>
 #include <zephyr/drivers/uart.h>
-#include <zephyr/drivers/bluetooth/hci_driver.h>
+//#include <zephyr/drivers/bluetooth/hci_driver.h>
 #include <zephyr/drivers/gpio.h>
 
 #include <zephyr/usb/usb_device.h>
